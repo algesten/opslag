@@ -1,0 +1,23 @@
+[package]
+name = "opslag"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# * 'alloc' controls whether we are using built-in Vec for parsing/handling.
+#   without it, we fall back on heapless::Vec with fixed stack sizes.
+# * 'std' sets whether to use std::time::Instant/Duration or embassy_time
+#   variants of that.
+default = ["std", "alloc"]
+std = ["dep:log"]
+alloc = []
+
+[dependencies]
+heapless = "0.8.0"
+nom = { version = "8.0.0", default-features = false }
+defmt = { version = "0.3.10" }
+log = { version = "0.4.26", optional = true }
+
+[dev-dependencies]
+socket2 = { version = "0.5.8", features = ["all"] }
+env_logger = "0.11.6"
