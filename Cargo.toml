@@ -2,6 +2,12 @@
 name = "opslag"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+categories = ["network-programming", "no-std"]
+keywords = ["mdns", "dns", "multicast", "chromecast", "discovery"]
+repository = "https://github.com/algesten/opslag"
+readme = "README.md"
+description = "Sans-IO no_std mDNS library"
 
 [features]
 # * 'alloc' controls whether we are using built-in Vec for parsing/handling.
