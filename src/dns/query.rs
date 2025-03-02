@@ -5,14 +5,14 @@ use super::records::Record;
 use super::Label;
 use crate::writer::Writer;
 
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Query<'a, const LLEN: usize> {
     pub name: Label<'a, LLEN>,
     pub qtype: QType,
     pub qclass: QClass,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
 pub enum QType {
     A = 1,
@@ -24,7 +24,7 @@ pub enum QType {
     Unknown(u16),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u16)]
 pub enum QClass {
     IN = 1,
@@ -59,7 +59,7 @@ impl<'a, const LLEN: usize> Query<'a, LLEN> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Answer<'a, const LLEN: usize> {
     pub name: Label<'a, LLEN>,
     pub atype: QType,
@@ -143,6 +143,62 @@ impl<'a, const LLEN: usize> Answer<'a, LLEN> {
         w[..4].copy_from_slice(&self.ttl.to_be_bytes());
         w.inc(4);
         self.record.serialize(w);
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const LLEN: usize> defmt::Format for Query<'a, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "Query {{ name: {:?}, qtype: {:?}, qclass: {:?} }}",
+            self.name,
+            self.qtype,
+            self.qclass
+        );
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for QType {
+    fn format(&self, fmt: defmt::Formatter) {
+        let qtype_str = match self {
+            QType::A => "A",
+            QType::AAAA => "AAAA",
+            QType::PTR => "PTR",
+            QType::TXT => "TXT",
+            QType::SRV => "SRV",
+            QType::Any => "Any",
+            QType::Unknown(_) => "Unknown",
+        };
+        defmt::write!(fmt, "QType({=str})", qtype_str);
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for QClass {
+    fn format(&self, fmt: defmt::Formatter) {
+        let qclass_str = match self {
+            QClass::IN => "IN",
+            QClass::Multicast => "Multicast",
+            QClass::Unknown(_) => "Unknown",
+        };
+        defmt::write!(fmt, "QClass({=str})", qclass_str);
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const LLEN: usize> defmt::Format for Answer<'a, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "Answer {{ name: {:?}, atype: {:?}, aclass: {:?}, ttl: {}, record: {:?} }}",
+            self.name,
+            self.atype,
+            self.aclass,
+            self.ttl,
+            self.record
+        );
     }
 }
 

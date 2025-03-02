@@ -1,7 +1,6 @@
 use core::net::{IpAddr, Ipv4Addr};
 
 use crate::dns::{self, Answer, Label, QClass, QType, Record};
-use crate::format::FormatIpAddr;
 use crate::vec::Vec;
 
 /// Information about a service to declare over mDNS.
@@ -218,8 +217,10 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     }
 }
 
+#[cfg(feature = "defmt")]
 impl<const LLEN: usize> defmt::Format for ServiceInfo<'_, LLEN> {
     fn format(&self, fmt: defmt::Formatter) {
+        use crate::format::FormatIpAddr;
         defmt::write!(
             fmt,
             "ServiceInfo {{ service_type: {}, instance_name: {}, host_name: {}, ip_address: {}, port: {} }}",

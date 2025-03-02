@@ -73,6 +73,7 @@ impl<T: PartialEq, const N: usize> PartialEq for Vec<T, N> {
 
 impl<T: Eq, const N: usize> Eq for Vec<T, N> {}
 
+#[cfg(feature = "defmt")]
 impl<T: defmt::Format, const N: usize> defmt::Format for Vec<T, N> {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "[");

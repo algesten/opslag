@@ -4,10 +4,10 @@ use nom::IResult;
 
 use crate::writer::Writer;
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub struct Flags(pub u16);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opcode {
     Query = 0,
     IQuery = 1,
@@ -174,5 +174,36 @@ impl fmt::Debug for Flags {
             .field("reserved", &self.get_reserved())
             .field("rcode", &self.get_rcode())
             .finish()
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for Flags {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "Flags {{ query: {}, opcode: {:?}, authoritative: {}, truncated: {}, recursion_desired: {}, recursion_available: {}, reserved: {}, rcode: {} }}",
+            self.is_query(),
+            self.get_opcode(),
+            self.is_authoritative(),
+            self.is_truncated(),
+            self.is_recursion_desired(),
+            self.is_recursion_available(),
+            self.get_reserved(),
+            self.get_rcode()
+        );
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for Opcode {
+    fn format(&self, fmt: defmt::Formatter) {
+        let opcode_str = match self {
+            Opcode::Query => "Query",
+            Opcode::IQuery => "IQuery",
+            Opcode::Status => "Status",
+            Opcode::Reserved => "Reserved",
+            Opcode::Notify => "Notify",
+            Opcode::Update => "Update",
+        };
+        defmt::write!(fmt, "Opcode({=str})", opcode_str);
     }
 }

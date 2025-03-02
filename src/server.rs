@@ -1,7 +1,6 @@
 use core::net::SocketAddr;
 
 use crate::dns::{Flags, Message, QClass, QType, Query, Request, Response};
-use crate::format::FormatSocketAddr;
 use crate::time::Time;
 use crate::vec::Vec;
 use crate::writer::Writer;
@@ -273,12 +272,12 @@ impl<
     fn handle_response<'x>(
         &mut self,
         response: Response<'x, QLEN, ALEN, LLEN>,
-        from: SocketAddr,
+        _from: SocketAddr,
         _buffer: &mut [u8],
     ) -> Output<'x, LLEN, SLEN> {
         let mut services = Vec::new();
 
-        debug!("Handle response: {:?} {:?}", from, response);
+        debug!("Handle response: {:?} {:?}", _from, response);
 
         ServiceInfo::from_answers::<SLEN>(&response.answers, &mut services);
 
@@ -314,8 +313,10 @@ fn is_matching_service<const LLEN: usize, const SLEN: usize>(
     handled_service && !is_self
 }
 
+#[cfg(feature = "defmt")]
 impl defmt::Format for Input<'_> {
     fn format(&self, fmt: defmt::Formatter) {
+        use crate::format::FormatSocketAddr;
         match self {
             Input::Timeout(instant) => {
                 defmt::write!(fmt, "Timeout({:?})", instant);
@@ -332,8 +333,10 @@ impl defmt::Format for Input<'_> {
     }
 }
 
+#[cfg(feature = "defmt")]
 impl defmt::Format for Cast {
     fn format(&self, fmt: defmt::Formatter) {
+        use crate::format::FormatSocketAddr;
         match self {
             Cast::Multi => {
                 defmt::write!(fmt, "Multi");
