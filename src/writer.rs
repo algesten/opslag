@@ -61,7 +61,7 @@ pub(crate) struct Reservation {
     len: usize,
 }
 
-impl<'a, 'b, const LK: usize> Deref for Writer<'a, 'b, LK> {
+impl<const LK: usize> Deref for Writer<'_, '_, LK> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -69,7 +69,7 @@ impl<'a, 'b, const LK: usize> Deref for Writer<'a, 'b, LK> {
     }
 }
 
-impl<'a, 'b, const LK: usize> DerefMut for Writer<'a, 'b, LK> {
+impl<const LK: usize> DerefMut for Writer<'_, '_, LK> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.output[self.position..]
     }

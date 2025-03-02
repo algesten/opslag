@@ -89,7 +89,7 @@ impl A {
         Ok((input, A { address }))
     }
 
-    pub(crate) fn serialize<'a, 'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
+    pub(crate) fn serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
         let len = 4u16.to_be_bytes();
         w[..2].copy_from_slice(&len);
         w.inc(2);
@@ -115,7 +115,7 @@ impl AAAA {
         Ok((input, AAAA { address }))
     }
 
-    pub(crate) fn serialize<'a, 'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
+    pub(crate) fn serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
         let len = 16u16.to_be_bytes();
         w[..2].copy_from_slice(&len);
         w.inc(2);

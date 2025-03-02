@@ -218,7 +218,7 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     }
 }
 
-impl<'a, const LLEN: usize> defmt::Format for ServiceInfo<'a, LLEN> {
+impl<const LLEN: usize> defmt::Format for ServiceInfo<'_, LLEN> {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(
             fmt,

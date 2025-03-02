@@ -59,7 +59,7 @@ impl<'a> LabelRun<'a> {
                 offset += 1;
                 break;
             } else if len & 0xc0 > 0 {
-                let offset = ((len & 0x3f) as usize) << 8 | (data[1] as usize);
+                let offset = (len & 0x3f) << 8 | (data[1] as usize);
                 data = &self.context[offset..];
             } else {
                 output[offset..offset + len + 1].copy_from_slice(&data[..len + 1]);
@@ -231,7 +231,7 @@ impl<'a, const LLEN: usize> Label<'a, LLEN> {
     }
 }
 
-fn serialize_str<'a, 'b, const LK: usize>(v: &'a str, w: &mut Writer<'a, 'b, LK>, is_last: bool) {
+fn serialize_str<'a, const LK: usize>(v: &'a str, w: &mut Writer<'a, '_, LK>, is_last: bool) {
     let mut rest = v;
 
     while !rest.is_empty() {
@@ -312,7 +312,7 @@ impl<'a> Iterator for LabelRunIter<'a> {
 
         let len = self.data[0] as usize;
         if len & 0xc0 > 0 {
-            let offset = ((len & 0x3f) as usize) << 8 | (self.data[1] as usize);
+            let offset = (len & 0x3f) << 8 | (self.data[1] as usize);
             self.data = &self.context[offset..];
             self.next()
         } else {
@@ -370,13 +370,13 @@ impl fmt::Display for LabelPart<'_> {
     }
 }
 
-impl<'a> Default for LabelPart<'a> {
+impl Default for LabelPart<'_> {
     fn default() -> Self {
         Self::Str(LabelStr(""))
     }
 }
 
-impl<'a> PartialEq for LabelPart<'a> {
+impl PartialEq for LabelPart<'_> {
     fn eq(&self, other: &Self) -> bool {
         let mut self_iter = self.iter();
         let mut other_iter = other.iter();
@@ -394,7 +394,7 @@ impl<'a> PartialEq for LabelPart<'a> {
     }
 }
 
-impl<'a> Eq for LabelPart<'a> {}
+impl Eq for LabelPart<'_> {}
 
 // glue code
 enum LabelPartIter<'a> {
@@ -413,13 +413,13 @@ impl<'a> Iterator for LabelPartIter<'a> {
     }
 }
 
-impl<'a, const LLEN: usize> PartialEq for Label<'a, LLEN> {
+impl<const LLEN: usize> PartialEq for Label<'_, LLEN> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<'a, const LLEN: usize> PartialEq<&str> for Label<'a, LLEN> {
+impl<const LLEN: usize> PartialEq<&str> for Label<'_, LLEN> {
     fn eq(&self, other: &&str) -> bool {
         let mut self_iter = self.iter();
         let mut other_iter = other.split('.');
@@ -439,9 +439,9 @@ impl<'a, const LLEN: usize> PartialEq<&str> for Label<'a, LLEN> {
     }
 }
 
-impl<'a, const LLEN: usize> Eq for Label<'a, LLEN> {}
+impl<const LLEN: usize> Eq for Label<'_, LLEN> {}
 
-impl<'a, const LLEN: usize> fmt::Debug for Label<'a, LLEN> {
+impl<const LLEN: usize> fmt::Debug for Label<'_, LLEN> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         core::write!(f, "Label(\"")?;
         let mut iter = self.iter();
@@ -456,7 +456,7 @@ impl<'a, const LLEN: usize> fmt::Debug for Label<'a, LLEN> {
     }
 }
 
-impl<'a, const LLEN: usize> defmt::Format for Label<'a, LLEN> {
+impl<const LLEN: usize> defmt::Format for Label<'_, LLEN> {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "Label(\"");
         let mut iter = self.iter();

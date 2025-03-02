@@ -314,7 +314,7 @@ fn is_matching_service<const LLEN: usize, const SLEN: usize>(
     handled_service && !is_self
 }
 
-impl<'x> defmt::Format for Input<'x> {
+impl defmt::Format for Input<'_> {
     fn format(&self, fmt: defmt::Formatter) {
         match self {
             Input::Timeout(instant) => {

@@ -42,7 +42,7 @@ impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> Message<'a, QL
         }
     }
 
-    pub fn serialize<'b, const LK: usize>(&self, output: &mut [u8]) -> usize {
+    pub fn serialize<const LK: usize>(&self, output: &mut [u8]) -> usize {
         let mut w = Writer::<LK>::new(output);
         match self {
             Message::Request(v) => v.serialize(&mut w),
