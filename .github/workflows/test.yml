@@ -1,0 +1,86 @@
+on: [push, pull_request]
+
+name: CI
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - name: Install Rust
+      id: toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    - name: Run Rustfmt
+      run: cargo +${{steps.toolchain.outputs.name}} fmt --check
+    - name: Run Clippy
+      run: cargo +${{steps.toolchain.outputs.name}} clippy
+  doc:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Docs
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+        run: cargo +${{steps.toolchain.outputs.name}} doc --no-deps --all-features --document-private-items
+
+  build_versions:
+    strategy:
+      matrix:
+        rust: [stable, beta, 1.71.1]
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build 1
+        run: cargo +${{steps.toolchain.outputs.name}} build
+      - name: Build 2
+        run: cargo +${{steps.toolchain.outputs.name}} build
+
+  build_and_test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - ""
+          - std
+          - alloc
+    env:
+      RUST_BACKTRACE: "1"
+      RUSTFLAGS: "-D dead_code -D unused-variables -D unused"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: |
+          cargo +${{steps.toolchain.outputs.name}} test \
+          --no-default-features --features "${{ matrix.feature }}"
