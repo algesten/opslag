@@ -166,14 +166,17 @@
 #![warn(clippy::all)]
 #![deny(missing_docs)]
 
-//
-#[cfg(feature = "std")]
+#[cfg(feature = "_log")]
 #[macro_use]
 extern crate log;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(feature = "defmt", not(feature = "_log")))]
 #[macro_use]
 extern crate defmt;
+
+#[cfg(not(any(feature = "defmt", feature = "_log")))]
+#[macro_use]
+mod log_poly;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -197,6 +200,7 @@ mod writer;
 
 pub use time::Time;
 
+#[cfg(feature = "defmt")]
 pub(crate) mod format;
 
 /// Standard port for mDNS (5353).

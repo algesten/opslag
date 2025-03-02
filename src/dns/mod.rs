@@ -16,7 +16,7 @@ mod query;
 mod records;
 mod reqres;
 
-#[derive(Debug, defmt::Format)]
+#[derive(Debug)]
 pub enum Message<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> {
     Request(Request<'a, QLEN, LLEN>),
     Response(Response<'a, QLEN, ALEN, LLEN>),
@@ -49,6 +49,22 @@ impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> Message<'a, QL
             Message::Response(v) => v.serialize(&mut w),
         }
         w.len()
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> defmt::Format
+    for Message<'a, QLEN, ALEN, LLEN>
+{
+    fn format(&self, fmt: defmt::Formatter) {
+        match self {
+            Message::Request(req) => {
+                defmt::write!(fmt, "Message::Request({:?})", req);
+            }
+            Message::Response(res) => {
+                defmt::write!(fmt, "Message::Response({:?})", res);
+            }
+        }
     }
 }
 

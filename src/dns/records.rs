@@ -5,10 +5,9 @@ use nom::{bytes::complete::take, number::complete::be_u16, IResult};
 
 use super::query::QType;
 use super::Label;
-use crate::format::{FormatIpv4Addr, FormatIpv6Addr};
 use crate::writer::Writer;
 
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 // Enum for DNS-SD records
 pub enum Record<'a, const LLEN: usize> {
     A(A),
@@ -125,7 +124,7 @@ impl AAAA {
 }
 
 // Struct for PTR record
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PTR<'a, const LLEN: usize> {
     pub name: Label<'a, LLEN>,
 }
@@ -147,7 +146,7 @@ impl<'a, const LLEN: usize> PTR<'a, LLEN> {
 }
 
 // Struct for TXT record
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TXT<'a> {
     pub text: &'a str,
 }
@@ -173,7 +172,7 @@ impl<'a> TXT<'a> {
 }
 
 // Struct for SRV record
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SRV<'a, const LLEN: usize> {
     pub priority: u16,
     pub weight: u16,
@@ -218,14 +217,59 @@ impl<'a, const LLEN: usize> SRV<'a, LLEN> {
     }
 }
 
+#[cfg(feature = "defmt")]
 impl defmt::Format for A {
     fn format(&self, fmt: defmt::Formatter) {
+        use crate::format::FormatIpv4Addr;
         defmt::write!(fmt, "A({})", FormatIpv4Addr(self.address))
     }
 }
 
+#[cfg(feature = "defmt")]
 impl defmt::Format for AAAA {
     fn format(&self, fmt: defmt::Formatter) {
+        use crate::format::FormatIpv6Addr;
         defmt::write!(fmt, "AAAA({})", FormatIpv6Addr(self.address))
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const LLEN: usize> defmt::Format for Record<'a, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        match self {
+            Record::A(record) => defmt::write!(fmt, "Record::A({:?})", record),
+            Record::AAAA(record) => defmt::write!(fmt, "Record::AAAA({:?})", record),
+            Record::PTR(record) => defmt::write!(fmt, "Record::PTR({:?})", record),
+            Record::TXT(record) => defmt::write!(fmt, "Record::TXT({:?})", record),
+            Record::SRV(record) => defmt::write!(fmt, "Record::SRV({:?})", record),
+        }
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const LLEN: usize> defmt::Format for PTR<'a, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "PTR {{ name: {:?} }}", self.name);
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a> defmt::Format for TXT<'a> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "TXT {{ text: {:?} }}", self.text);
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const LLEN: usize> defmt::Format for SRV<'a, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "SRV {{ priority: {}, weight: {}, port: {}, target: {:?} }}",
+            self.priority,
+            self.weight,
+            self.port,
+            self.target
+        );
     }
 }

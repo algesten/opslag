@@ -48,6 +48,7 @@ impl Add<u64> for Time {
     }
 }
 
+#[cfg(feature = "defmt")]
 impl defmt::Format for Time {
     fn format(&self, f: defmt::Formatter) {
         defmt::write!(f, "Time({})", self.0)

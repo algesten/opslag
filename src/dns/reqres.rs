@@ -7,7 +7,7 @@ use crate::writer::Writer;
 
 const ZERO_U16: [u8; 2] = 0u16.to_be_bytes();
 
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Request<'a, const QLEN: usize, const LLEN: usize> {
     pub id: u16,
     pub flags: Flags,
@@ -55,7 +55,7 @@ impl<'a, const QLEN: usize, const LLEN: usize> Request<'a, QLEN, LLEN> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, defmt::Format)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Response<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> {
     pub id: u16,
     pub flags: Flags,
@@ -123,6 +123,35 @@ impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> Response<'a, Q
         for answer in self.answers.iter() {
             answer.serialize(w);
         }
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const QLEN: usize, const LLEN: usize> defmt::Format for Request<'a, QLEN, LLEN> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "Request {{ id: {}, flags: {:?}, queries: {:?} }}",
+            self.id,
+            self.flags,
+            self.queries
+        );
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> defmt::Format
+    for Response<'a, QLEN, ALEN, LLEN>
+{
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(
+            fmt,
+            "Response {{ id: {}, flags: {:?}, queries: {:?}, answers: {:?} }}",
+            self.id,
+            self.flags,
+            self.queries,
+            self.answers
+        );
     }
 }
 

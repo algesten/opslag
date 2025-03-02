@@ -10,18 +10,25 @@ readme = "README.md"
 description = "Sans-IO no_std mDNS library"
 
 [features]
-# * 'alloc' controls whether we are using built-in Vec for parsing/handling.
-#   without it, we fall back on heapless::Vec with fixed stack sizes.
-# * 'std' sets whether to use std::time::Instant/Duration or embassy_time
-#   variants of that.
 default = ["std", "alloc"]
-std = ["dep:log"]
+# 'std' sets whether to use the std-library. It also enables the log-crate
+# instead of defmt, even if defmt feature is enabled.
+std = ["_log"]
+# 'alloc' controls whether we are using built-in Vec for parsing/handling.
+# without it, we fall back on heapless::Vec with fixed stack sizes.
+# This is independent of the 'std' feature (and can be used in no_std).
 alloc = []
+# Whether to use defmt for logging. This is only possible _without_ the std
+# feature flag.
+defmt = ["dep:defmt"]
+
+# Internal
+_log = ["dep:log"]
 
 [dependencies]
 heapless = "0.8.0"
 nom = { version = "8.0.0", default-features = false }
-defmt = { version = "0.3.10" }
+defmt = { version = "0.3.10", optional = true }
 log = { version = "0.4.26", optional = true }
 
 [dev-dependencies]

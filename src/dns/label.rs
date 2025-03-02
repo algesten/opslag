@@ -59,7 +59,7 @@ impl<'a> LabelRun<'a> {
                 offset += 1;
                 break;
             } else if len & 0xc0 > 0 {
-                let offset = (len & 0x3f) << 8 | (data[1] as usize);
+                let offset = ((len & 0x3f) << 8) | (data[1] as usize);
                 data = &self.context[offset..];
             } else {
                 output[offset..offset + len + 1].copy_from_slice(&data[..len + 1]);
@@ -169,7 +169,7 @@ impl<'a, const LLEN: usize> Label<'a, LLEN> {
                 trace!("Label::parse from offset");
                 let (new_input, b) = be_u8(new_input)?;
                 // pointer into context.
-                let offset = ((len & 0x3f) as usize) << 8 | (b as usize);
+                let offset = (((len & 0x3f) as usize) << 8) | (b as usize);
                 let Some(pointered) = context.get(offset..) else {
                     warn!(
                         "Label::parse offset wrong: {} in len: {}",
@@ -312,7 +312,7 @@ impl<'a> Iterator for LabelRunIter<'a> {
 
         let len = self.data[0] as usize;
         if len & 0xc0 > 0 {
-            let offset = (len & 0x3f) << 8 | (self.data[1] as usize);
+            let offset = ((len & 0x3f) << 8) | (self.data[1] as usize);
             self.data = &self.context[offset..];
             self.next()
         } else {
@@ -456,6 +456,7 @@ impl<const LLEN: usize> fmt::Debug for Label<'_, LLEN> {
     }
 }
 
+#[cfg(feature = "defmt")]
 impl<const LLEN: usize> defmt::Format for Label<'_, LLEN> {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "Label(\"");
