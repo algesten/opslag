@@ -437,13 +437,18 @@ impl defmt::Format for Input<'_> {
 #[cfg(feature = "defmt")]
 impl defmt::Format for Cast {
     fn format(&self, fmt: defmt::Formatter) {
-        use crate::format::FormatSocketAddr;
+        use crate::format::{FormatIpAddr, FormatSocketAddr};
         match self {
-            Cast::Multi => {
-                defmt::write!(fmt, "Multi");
+            Cast::Multi { from } => {
+                defmt::write!(fmt, "Multi {{ from:{:?} }}", FormatIpAddr(*from));
             }
-            Cast::Uni(addr) => {
-                defmt::write!(fmt, "Uni({:?})", FormatSocketAddr(*addr));
+            Cast::Uni { from, target } => {
+                defmt::write!(
+                    fmt,
+                    "Uni {{ from:{:?}, target:{:?} }}",
+                    FormatIpAddr(*from),
+                    FormatSocketAddr(*target)
+                );
             }
         }
     }
