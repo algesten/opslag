@@ -1,5 +1,9 @@
 # Unreleased
 
+# 0.2.1
+
+  * Fix error with defmt flag
+
 # 0.2.0
 
   * Multihome support
