@@ -161,6 +161,22 @@
 //!     input = Input::Packet(buf, from);
 //! }
 //! ```
+//!
+//! ## Multihome support
+//!
+//! opslag can handle having services on multiple interfaces. Each service is
+//! declared with an [`ip_address`][ServiceInfo::ip_address()] and
+//! [`netmask`][`ServiceInfo::netmask()]. This is how opslag keeps the interfaces
+//! apart. When advertising the local services, or querying for remote services,
+//! it will send one packet for each distinct ip/netmask pair it finds.
+//!
+//! When sending a packet, [`Cast::Multi`] and [`Cast::Uni`] both contain a
+//! `from` address. This address is used to determine which socket to send the packet
+//! from. For incoming requests, the ip/netmask pair is used to determine which services
+//! are relevant to consider.
+//!
+//! If you want the same service to appear on two separate interfaces/ip, you declare
+//! the same [`ServiceInfo`] twice, with different ip/netmasks.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
