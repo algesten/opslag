@@ -1,4 +1,4 @@
-use core::net::SocketAddr;
+use core::net::{IpAddr, SocketAddr};
 
 use crate::dns::{Flags, Message, QClass, QType, Query, Request, Response};
 use crate::time::Time;
@@ -47,11 +47,20 @@ pub struct Server<
     const LK: usize,
 > {
     last_now: Time,
-    services: [ServiceInfo<'a, LLEN>; SLEN],
+    services: Vec<ServiceInfo<'a, LLEN>, SLEN>,
+    local_ips: Vec<LocalIp, SLEN>,
     next_advertise: Time,
+    next_advertise_idx: usize,
     next_query: Time,
+    next_query_idx: usize,
     txid_query: u16,
     next_txid: u16,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct LocalIp {
+    addr: IpAddr,
+    mask: IpAddr,
 }
 
 const ADVERTISE_INTERVAL: u64 = 15_000;
@@ -61,9 +70,17 @@ const QUERY_INTERVAL: u64 = 19_000;
 #[derive(Debug)]
 pub enum Cast {
     /// Send as multicast.
-    Multi,
+    Multi {
+        /// Send from this ip address.
+        from: IpAddr,
+    },
     /// Unicast to specific socket address.
-    Uni(SocketAddr),
+    Uni {
+        /// Send from this ip address.
+        from: IpAddr,
+        /// Send to this ip address.
+        target: SocketAddr,
+    },
 }
 
 /// Input to [`Server`].
@@ -106,12 +123,33 @@ impl<
     > Server<'a, QLEN, ALEN, LLEN, SLEN, LK>
 {
     /// Creates a new server instance.
-    pub fn new(services: [ServiceInfo<'a, LLEN>; SLEN]) -> Server<'a, QLEN, ALEN, LLEN, SLEN, LK> {
+    pub fn new(
+        iter: impl Iterator<Item = ServiceInfo<'a, LLEN>>,
+    ) -> Server<'a, QLEN, ALEN, LLEN, SLEN, LK> {
+        let mut services = Vec::new();
+        services.extend(iter);
+
+        let mut local_ips = Vec::new();
+        for s in services.iter() {
+            let loc = LocalIp {
+                addr: s.ip_address(),
+                mask: s.netmask(),
+            };
+            let has_ip = local_ips.iter().any(|l| *l == loc);
+            if !has_ip {
+                // unwrap: this should be fine since local_ips is as long as services.
+                local_ips.push(loc).unwrap();
+            }
+        }
+
         Server {
             last_now: Time::from_millis(0),
             services,
+            local_ips,
             next_advertise: Time::from_millis(3000),
+            next_advertise_idx: 0,
             next_query: Time::from_millis(5000),
+            next_query_idx: 0,
             txid_query: 0,
             next_txid: 1,
         }
@@ -136,9 +174,31 @@ impl<
         self.last_now = now;
 
         if now >= self.next_advertise {
-            self.do_advertise(now, buffer)
+            let send_from = self.local_ips[self.next_advertise_idx];
+
+            let ret = self.do_advertise(buffer, send_from);
+
+            self.next_advertise_idx += 1;
+
+            if self.next_advertise_idx == self.local_ips.len() {
+                self.next_advertise_idx = 0;
+                self.next_advertise = now + ADVERTISE_INTERVAL;
+            }
+
+            ret
         } else if now >= self.next_query {
-            self.do_query(now, buffer)
+            let send_from = self.local_ips[self.next_query_idx];
+
+            let ret = self.do_query(buffer, send_from);
+
+            self.next_query_idx += 1;
+
+            if self.next_query_idx == self.local_ips.len() {
+                self.next_query_idx = 0;
+                self.next_query = now + QUERY_INTERVAL;
+            }
+
+            ret
         } else {
             Output::Timeout(self.poll_timeout())
         }
@@ -150,7 +210,7 @@ impl<
         x
     }
 
-    fn do_advertise(&mut self, now: Time, buffer: &mut [u8]) -> Output<'static, LLEN, SLEN> {
+    fn do_advertise(&mut self, buffer: &mut [u8], local: LocalIp) -> Output<'static, LLEN, SLEN> {
         let mut response: Response<QLEN, ALEN, LLEN> = Response {
             id: 0,
             flags: Flags::standard_response(),
@@ -158,23 +218,27 @@ impl<
             answers: Vec::new(),
         };
 
-        for service in &self.services {
+        let to_consider = self
+            .services
+            .iter()
+            .filter(|s| s.ip_address() == local.addr && s.netmask() == local.mask);
+
+        for service in to_consider {
             response
                 .answers
                 .extend(service.as_answers(QClass::Multicast));
         }
 
-        debug!("Advertise response: {:?}", response);
+        debug!("Advertise response (from {}): {:?}", local.addr, response);
 
         let mut buf = Writer::<LK>::new(buffer);
 
         response.serialize(&mut buf);
-        self.next_advertise = now + ADVERTISE_INTERVAL;
 
-        Output::Packet(buf.len(), Cast::Multi)
+        Output::Packet(buf.len(), Cast::Multi { from: local.addr })
     }
 
-    fn do_query(&mut self, now: Time, buffer: &mut [u8]) -> Output<'static, LLEN, SLEN> {
+    fn do_query(&mut self, buffer: &mut [u8], local: LocalIp) -> Output<'static, LLEN, SLEN> {
         let mut request: Request<QLEN, LLEN> = Request {
             id: self.next_txid(),
             flags: Flags::standard_request(),
@@ -183,7 +247,12 @@ impl<
 
         self.txid_query = request.id;
 
-        for service in &self.services {
+        let to_consider = self
+            .services
+            .iter()
+            .filter(|s| s.ip_address() == local.addr && s.netmask() == local.mask);
+
+        for service in to_consider {
             let query = Query {
                 name: service.service_type().clone(),
                 qtype: QType::PTR,
@@ -192,13 +261,12 @@ impl<
             request.queries.push(query).unwrap();
         }
 
-        debug!("Send request: {:?}", request);
+        debug!("Send request (from {}): {:?}", local.addr, request);
 
         let mut buf = Writer::<LK>::new(buffer);
         request.serialize(&mut buf);
-        self.next_query = now + QUERY_INTERVAL;
 
-        Output::Packet(buf.len(), Cast::Multi)
+        Output::Packet(buf.len(), Cast::Multi { from: local.addr })
     }
 
     fn handle_packet<'x>(
@@ -237,8 +305,11 @@ impl<
         let mut answers = Vec::new();
 
         for query in queries {
-            for service in &self.services {
-                if query.qtype == QType::PTR && &query.name == service.service_type() {
+            for service in self.services.iter() {
+                if query.qtype == QType::PTR
+                    && &query.name == service.service_type()
+                    && is_same_network(service.ip_address(), service.netmask(), from.ip())
+                {
                     answers.extend(service.as_answers(qclass));
                 }
             }
@@ -261,9 +332,21 @@ impl<
         let mut buf = Writer::<LK>::new(buffer);
         response.serialize(&mut buf);
 
+        let send_from = self
+            .local_ips
+            .iter()
+            .find(|l| is_same_network(l.addr, l.mask, from.ip()))
+            // unwrap: is ok because above answers.is_empty() check means we must have had
+            // a match between incoming query and service records.
+            .unwrap()
+            .addr;
+
         let cast = match qclass {
-            QClass::IN => Cast::Uni(from),
-            _ => Cast::Multi,
+            QClass::IN => Cast::Uni {
+                from: send_from,
+                target: from,
+            },
+            _ => Cast::Multi { from: send_from },
         };
 
         Output::Packet(buf.len(), cast)
@@ -277,7 +360,7 @@ impl<
     ) -> Output<'x, LLEN, SLEN> {
         let mut services = Vec::new();
 
-        debug!("Handle response: {:?} {:?}", _from, response);
+        trace!("Handle response: {:?} {:?}", _from, response);
 
         ServiceInfo::from_answers::<SLEN>(&response.answers, &mut services);
 
@@ -295,14 +378,31 @@ impl<
     }
 }
 
+fn is_same_network(ip: IpAddr, netmask: IpAddr, other: IpAddr) -> bool {
+    match (ip, netmask, other) {
+        (IpAddr::V4(ip), IpAddr::V4(mask), IpAddr::V4(other)) => {
+            (u32::from(ip) & u32::from(mask)) == (u32::from(other) & u32::from(mask))
+        }
+        (IpAddr::V6(ip), IpAddr::V6(mask), IpAddr::V6(other)) => ip
+            .segments()
+            .iter()
+            .zip(mask.segments().iter())
+            .zip(other.segments().iter())
+            .all(|((&ip_seg, &mask_seg), &other_seg)| {
+                (ip_seg & mask_seg) == (other_seg & mask_seg)
+            }),
+        _ => false,
+    }
+}
+
 fn is_matching_service<const LLEN: usize, const SLEN: usize>(
     s1: &ServiceInfo<'_, LLEN>,
-    services: &[ServiceInfo<'_, LLEN>; SLEN],
+    services: &Vec<ServiceInfo<'_, LLEN>, SLEN>,
 ) -> bool {
     let mut handled_service = false;
     let mut is_self = false;
 
-    for s2 in services {
+    for s2 in services.iter() {
         handled_service |= s1.service_type() == s2.service_type();
 
         is_self |= s1.instance_name() == s2.instance_name()

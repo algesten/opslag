@@ -1,5 +1,5 @@
 use std::io::ErrorKind;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::time::{Duration, Instant};
 
 use opslag::{Cast, Input, Output, Server, ServiceInfo, Time};
@@ -8,13 +8,14 @@ use socket2::{Domain, Type};
 const MDNS_PORT: u16 = 5353;
 const GROUP_ADDR_V4: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
 const GROUP_SOCK_V4: SocketAddrV4 = SocketAddrV4::new(GROUP_ADDR_V4, MDNS_PORT);
+const ANY_MDNS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), MDNS_PORT);
 
 pub fn main() {
     env_logger::init();
 
     // CHANGE THIS TO YOUR OWN IP and host:
-    let my_ip: Ipv4Addr = "10.0.0.54".parse().unwrap();
-    let my_host = "nugget.local";
+    let my_ip: Ipv4Addr = "10.1.1.7".parse().unwrap();
+    let my_host = "mini.local";
 
     // We must use socket2, because of set_reuse_port()
     let sock = socket2::Socket::new(Domain::IPV4, Type::DGRAM, None).unwrap();
@@ -22,12 +23,12 @@ pub fn main() {
     // This makes it possible to listen to the 5353 port, even though
     // your system's main mDNS service (such as mDNSResponder on macOS)
     // also listens to it.
+    sock.set_reuse_address(true).unwrap();
     #[cfg(unix)] // This is currently restricted to Unix's in socket2
     sock.set_reuse_port(true).unwrap();
-    sock.set_reuse_address(true).unwrap();
 
     // Now we can bind the mDNS multicast address/port
-    sock.bind(&GROUP_SOCK_V4.into()).unwrap();
+    sock.bind(&ANY_MDNS.into()).unwrap();
 
     // Enable multicast
     sock.join_multicast_v4(&GROUP_ADDR_V4, &my_ip).unwrap();
@@ -43,13 +44,14 @@ pub fn main() {
         "martin_test",            // This specific service instance
         my_host,                  // My host name (<some_name>.local)
         my_ip,                    // The IP for my host name
+        [255, 255, 255, 0],       // Netmask for the IP
         1234,                     // The port the service is running on
     );
 
     // The mDNS server.
     // We expect at most: 4 queries (QLEN), 4 answers (ALEN),
     // and 4 segments to DNS label (must match ServiceInfo).
-    let mut server: Server<4, 4, 4, 1, 10> = Server::new([info]);
+    let mut server: Server<4, 4, 4, 1, 10> = Server::new([info].into_iter());
 
     // The server starts at some imaginary time 0. The `Time`
     // type encapsulates a number of milliseconds since this time
@@ -81,8 +83,8 @@ pub fn main() {
                 let to_send = &output[..n];
 
                 let target = match cast {
-                    Cast::Multi => SocketAddr::V4(GROUP_SOCK_V4),
-                    Cast::Uni(v) => v,
+                    Cast::Multi { .. } => SocketAddr::V4(GROUP_SOCK_V4),
+                    Cast::Uni { target, .. } => target,
                 };
 
                 sock.send_to(to_send, target).unwrap();

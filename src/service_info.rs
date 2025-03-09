@@ -1,4 +1,4 @@
-use core::net::{IpAddr, Ipv4Addr};
+use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use crate::dns::{self, Answer, Label, QClass, QType, Record};
 use crate::vec::Vec;
@@ -8,12 +8,17 @@ use crate::vec::Vec;
 pub struct ServiceInfo<'a, const LLEN: usize = 4> {
     service_type: Label<'a, LLEN>,
     instance_name: Label<'a, LLEN>,
-    host_name: Label<'a, LLEN>,
+    hostname: Label<'a, LLEN>,
     ip_address: IpAddr,
+    netmask: IpAddr,
     port: u16,
 }
 
 const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
+const NETMASK_FULL_V4: IpAddr = IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255));
+const NETMASK_FULL_V6: IpAddr = IpAddr::V6(Ipv6Addr::new(
+    0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
+));
 
 impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     /// Creates information about a new service.
@@ -32,8 +37,9 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     pub fn new(
         service_type: &'a str,
         instance_name: &'a str,
-        host_name: &'a str,
+        hostname: &'a str,
         ip_address: impl Into<IpAddr>,
+        netmask: impl Into<IpAddr>,
         port: u16,
     ) -> Self {
         let service_type = Label::new(service_type);
@@ -44,8 +50,9 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
         Self {
             service_type,
             instance_name: i,
-            host_name: Label::new(host_name),
+            hostname: Label::new(hostname),
             ip_address: ip_address.into(),
+            netmask: netmask.into(),
             port,
         }
     }
@@ -67,8 +74,8 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     /// The host name the service is running on.
     ///
     /// Example: `Martin's Macbook Air.local`
-    pub fn host_name(&self) -> &Label<'a, LLEN> {
-        &self.host_name
+    pub fn hostname(&self) -> &Label<'a, LLEN> {
+        &self.hostname
     }
 
     /// Corresponding IP address for the host name.
@@ -76,6 +83,13 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     /// Example: `192.160.10.24`
     pub fn ip_address(&self) -> IpAddr {
         self.ip_address
+    }
+
+    /// The netmask, if known.
+    ///
+    /// Otherwise returns a "full" mask, ie `255.255.255.255`.
+    pub fn netmask(&self) -> IpAddr {
+        self.netmask
     }
 
     /// Port the service is running on.
@@ -107,7 +121,7 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
                 priority: 0,
                 weight: 0,
                 port: self.port,
-                target: self.host_name.clone(),
+                target: self.hostname.clone(),
             }),
         }
     }
@@ -125,14 +139,14 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     pub(crate) fn ip_answer(&'a self, aclass: QClass) -> Answer<'a, LLEN> {
         match self.ip_address {
             IpAddr::V4(address) => Answer {
-                name: self.host_name.clone(),
+                name: self.hostname.clone(),
                 atype: QType::A,
                 aclass,
                 ttl: 120,
                 record: Record::A(dns::A { address }),
             },
             IpAddr::V6(address) => Answer {
-                name: self.host_name.clone(),
+                name: self.hostname.clone(),
                 atype: QType::AAAA,
                 aclass: QClass::IN,
                 ttl: 120,
@@ -153,8 +167,9 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
                 let _ = output.push(ServiceInfo {
                     service_type,
                     instance_name,
-                    host_name: Label::default(),
+                    hostname: Label::default(),
                     ip_address: DEFAULT_ADDR,
+                    netmask: DEFAULT_ADDR,
                     port: 0,
                 });
             }
@@ -165,7 +180,7 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
             if let Record::SRV(srv) = &answer.record {
                 for stub in output.iter_mut() {
                     if stub.instance_name == answer.name {
-                        stub.host_name = srv.target.clone();
+                        stub.hostname = srv.target.clone();
                         stub.port = srv.port;
                     }
                 }
@@ -177,15 +192,17 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
             match &answer.record {
                 Record::A(a) => {
                     for stub in output.iter_mut() {
-                        if stub.host_name == answer.name {
+                        if stub.hostname == answer.name {
                             stub.ip_address = IpAddr::V4(a.address);
+                            stub.netmask = NETMASK_FULL_V4;
                         }
                     }
                 }
                 Record::AAAA(aaaa) => {
                     for stub in output.iter_mut() {
-                        if stub.host_name == answer.name {
+                        if stub.hostname == answer.name {
                             stub.ip_address = IpAddr::V6(aaaa.address);
+                            stub.netmask = NETMASK_FULL_V6;
                         }
                     }
                 }
@@ -197,7 +214,7 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
         output.retain(|stub| {
             !stub.service_type.is_empty()
                 && !stub.instance_name.is_empty()
-                && !stub.host_name.is_empty()
+                && !stub.hostname.is_empty()
                 && stub.ip_address != DEFAULT_ADDR
                 && stub.port != 0
         });
@@ -223,10 +240,10 @@ impl<const LLEN: usize> defmt::Format for ServiceInfo<'_, LLEN> {
         use crate::format::FormatIpAddr;
         defmt::write!(
             fmt,
-            "ServiceInfo {{ service_type: {}, instance_name: {}, host_name: {}, ip_address: {}, port: {} }}",
+            "ServiceInfo {{ service_type: {}, instance_name: {}, hostname: {}, ip_address: {}, port: {} }}",
             self.service_type,
             self.instance_name,
-            self.host_name,
+            self.hostname,
             FormatIpAddr(self.ip_address),
             self.port
         );
