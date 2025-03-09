@@ -31,6 +31,7 @@ impl<'a, const LLEN: usize> ServiceInfo<'a, LLEN> {
     ///    "instance01",             // This specific service instance
     ///    "nugget.local",           // My host name (<some_name>.local)
     ///    [192, 168, 0, 3],         // The IP for my host name
+    ///    [255, 255, 255, 0],       // Netmask for the IP
     ///    1234,                     // The port the service is running on
     /// );
     /// ```

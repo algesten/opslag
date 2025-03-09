@@ -23,6 +23,7 @@
 //!     "martin_test",            // This specific service instance
 //!     "nugget.local",           // My host name (<some_name>.local)
 //!     [192, 168, 0, 3],         // The IP for my host name
+//!     [255, 255, 255, 0],       // Netmask of the IP.
 //!     1234,                     // The port the service is running on
 //! );
 //!
@@ -32,7 +33,7 @@
 //! // - max 4 segments in a DNS label
 //! // - 1 single service to announce
 //! // - max 10 entries for DNS label compression
-//! let mut server: Server<4, 4, 4, 1, 10> = Server::new([info]);
+//! let mut server: Server<4, 4, 4, 1, 10> = Server::new([info].into_iter());
 //! ```
 //!
 //! # Sans-IO and time
@@ -112,8 +113,8 @@
 //!             let to_send = &output[..n];
 //!
 //!             let target = match cast {
-//!                 Cast::Multi => SocketAddr::V4(GROUP_SOCK_V4),
-//!                 Cast::Uni(v) => v,
+//!                 Cast::Multi { .. } => SocketAddr::V4(GROUP_SOCK_V4),
+//!                 Cast::Uni { target, .. } => target,
 //!             };
 //!
 //!             sock.send_to(to_send, target).unwrap();

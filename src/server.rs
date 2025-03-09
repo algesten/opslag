@@ -28,6 +28,7 @@ use crate::ServiceInfo;
 ///     "martin_test",          // instance name, in case multiple services on same host
 ///     "mini.local",           // host
 ///     [192, 168, 0, 1],       // IP address of host
+///     [255, 255, 255, 0],     // Netmask for the IP
 ///     1234,                   // port of service
 ///  );
 ///
@@ -36,7 +37,7 @@ use crate::ServiceInfo;
 /// // Max 4 segments in a label.
 /// // 1 handled service
 /// // 10 entries for dns label compression
-/// let server = Server::<4, 4, 4, 1, 10>::new([info]);
+/// let server = Server::<4, 4, 4, 1, 10>::new([info].into_iter());
 /// ```
 pub struct Server<
     'a,
