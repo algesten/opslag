@@ -1,5 +1,7 @@
 # Unreleased
 
+  * Discovery-only mode via `Server::query()`
+
 # 0.2.1
 
   * Fix error with defmt flag

@@ -162,6 +162,24 @@
 //! }
 //! ```
 //!
+//! ## Discovery-only mode
+//!
+//! If you only want to discover services without advertising any, use
+//! [`Server::query`] to register service types to look for. The first query
+//! goes out immediately rather than after the 5-second delay that comes from
+//! advertising.
+//!
+//! ```
+//! use opslag::Server;
+//!
+//! let mut server: Server<4, 4, 4, 1, 10> = Server::new(std::iter::empty());
+//! server.query(
+//!     "_my-service._udp.local",
+//!     [192, 168, 0, 1],
+//!     [255, 255, 255, 0],
+//! );
+//! ```
+//!
 //! ## Multihome support
 //!
 //! opslag can handle having services on multiple interfaces. Each service is
