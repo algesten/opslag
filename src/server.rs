@@ -9,11 +9,11 @@ use crate::ServiceInfo;
 /// A server for broadcasting/discovering peers.
 ///
 /// * `QLEN` - Max number of queries in a single mDNS packet. Only used if not **std**.
-///            Typically 4 for SRV, PTR, TXT and A (or AAAA).
+///   Typically 4 for SRV, PTR, TXT and A (or AAAA).
 /// * `ALEN` - Max number of answers in a single mDNS packet. Only used if not **std**.
-///            Typically 4 for SRV, PTR, TXT and A (or AAAA).
+///   Typically 4 for SRV, PTR, TXT and A (or AAAA).
 /// * `LLEN` - Max number of segments for a parsed Label.
-///            All services have max 4 segments: martin_test._myservice._udp.local.
+///   All services have max 4 segments: martin_test._myservice._udp.local.
 /// * `SLEN` - Capacity for service infos and query targets in the [`Server`].
 /// * `LK`   – List size for DNS label compression. 10 is a good value.
 ///
@@ -142,7 +142,7 @@ impl<
                 addr: s.ip_address(),
                 mask: s.netmask(),
             };
-            let has_ip = local_ips.iter().any(|l| *l == loc);
+            let has_ip = local_ips.contains(&loc);
             if !has_ip {
                 // unwrap: this should be fine since local_ips is as long as services.
                 local_ips.push(loc).unwrap();
@@ -205,7 +205,7 @@ impl<
             local_ip,
         });
 
-        if !self.local_ips.iter().any(|l| *l == local_ip) {
+        if !self.local_ips.contains(&local_ip) {
             let _ = self.local_ips.push(local_ip);
         }
 
