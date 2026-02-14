@@ -24,6 +24,10 @@ impl<'a, 'b, const LK: usize> Writer<'a, 'b, LK> {
         &mut self.output[..self.position]
     }
 
+    pub fn len(&self) -> usize {
+        self.position
+    }
+
     pub(crate) fn inc(&mut self, v: usize) {
         self.position += v;
     }
