@@ -1,5 +1,7 @@
 # Unreleased
 
+# 0.2.3
+
   * Fix duplicate query targets in `Server::query()` causing request flood
   * Deduplicate answers in server response to duplicate queries
   * Make `Writer` overflow-safe to prevent panic on buffer exhaustion
