@@ -1,5 +1,7 @@
 # Unreleased
 
+# 0.2.2
+
   * Discovery-only mode via `Server::query()`
 
 # 0.2.1
