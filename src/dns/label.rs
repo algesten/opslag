@@ -48,32 +48,26 @@ struct LabelRun<'a> {
 }
 
 impl<'a> LabelRun<'a> {
-    fn do_serialize(&self, output: &mut [u8]) -> usize {
-        let mut offset = 0;
+    fn do_serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
         let mut data = self.run;
 
         while !data.is_empty() {
             let len = data[0] as usize;
             if len == 0 {
-                output[offset] = 0;
-                offset += 1;
+                w.write_u8(0);
                 break;
             } else if len & 0xc0 > 0 {
                 let offset = ((len & 0x3f) << 8) | (data[1] as usize);
                 data = &self.context[offset..];
             } else {
-                output[offset..offset + len + 1].copy_from_slice(&data[..len + 1]);
-                offset += len + 1;
+                w.write(&data[..len + 1]);
                 data = &data[len + 1..];
             }
         }
-
-        offset
     }
 
     fn serialize<const LK: usize>(&self, w: &mut Writer<'a, '_, LK>) {
-        let n = self.do_serialize(&mut w[..]);
-        w.inc(n);
+        self.do_serialize(w);
     }
 
     fn iter(&self) -> LabelRunIter<'a> {
@@ -238,16 +232,15 @@ fn serialize_str<'a, const LK: usize>(v: &'a str, w: &mut Writer<'a, '_, LK>, is
         if is_last {
             if let Some(pos) = w.find_label(rest) {
                 let pointer = 0xc000 | pos as u16;
-                w[..2].copy_from_slice(&pointer.to_be_bytes());
-                w.inc(2);
+                w.write(&pointer.to_be_bytes());
                 return;
             }
         }
 
         let next = rest.split('.').next().unwrap();
-        let n = serialize_str_single(next, &mut w[..]);
         w.push_label(rest, 0);
-        w.inc(n);
+        w.write_u8(next.len() as u8);
+        w.write(next.as_bytes());
 
         if let Some(pos) = rest.find('.') {
             rest = &rest[pos + 1..];
@@ -257,18 +250,10 @@ fn serialize_str<'a, const LK: usize>(v: &'a str, w: &mut Writer<'a, '_, LK>, is
     }
 
     if is_last {
-        w[0] = 0;
-        w.inc(1);
+        w.write_u8(0);
     }
 }
 
-fn serialize_str_single(v: &str, output: &mut [u8]) -> usize {
-    let len = v.len();
-    output[0] = len as u8;
-    let output = &mut output[1..];
-    output[..len].copy_from_slice(v.as_bytes());
-    1 + len
-}
 
 impl<const LLEN: usize> fmt::Display for Label<'_, LLEN> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -559,5 +544,33 @@ mod test {
     fn label_new_without_dot_is_not_empty() {
         let label: Label<4> = Label::new("example");
         assert!(!label.is_empty());
+    }
+
+    #[test]
+    fn serialize_str_label_truncated_no_panic() {
+        // Buffer too small to fit the serialized label.
+        // Must not panic (previously caused: range end index 2 out of range for slice of length 0).
+        let label: Label<'static, 4> = Label::new("_service._udp.local");
+        let mut buffer = [0u8; 2];
+        let mut writer = Writer::<10>::new(&mut buffer);
+        label.serialize(&mut writer);
+        // Output is truncated but no panic occurred.
+    }
+
+    #[test]
+    fn serialize_with_compression_pointer_no_space_no_panic() {
+        // First write "local" to populate the label lookup, then try to write
+        // a second label ending in "local" with only enough room for the first
+        // label but not the compression pointer.
+        let label1: Label<'static, 4> = Label::new("first.local");
+        let label2: Label<'static, 4> = Label::new("second.local");
+        // "first.local" serializes as: 05 first 05 local 00 = 13 bytes
+        // "second.local" tries: 06 second + compression pointer (2 bytes) = needs 9 more
+        // Give just enough for label1 but leave 0 bytes for label2's pointer write.
+        let mut buffer = [0u8; 13];
+        let mut writer = Writer::<10>::new(&mut buffer);
+        label1.serialize(&mut writer);
+        // Writer is now full. Serializing label2 must not panic.
+        label2.serialize(&mut writer);
     }
 }

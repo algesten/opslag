@@ -52,10 +52,8 @@ impl<'a, const LLEN: usize> Query<'a, LLEN> {
 
     pub(crate) fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
         self.name.serialize(w);
-        w[..2].copy_from_slice(&self.qtype.to_u16().to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&self.qclass.to_u16().to_be_bytes());
-        w.inc(2);
+        w.write(&self.qtype.to_u16().to_be_bytes());
+        w.write(&self.qclass.to_u16().to_be_bytes());
     }
 }
 
@@ -136,12 +134,9 @@ impl<'a, const LLEN: usize> Answer<'a, LLEN> {
 
     pub(crate) fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
         self.name.serialize(w);
-        w[..2].copy_from_slice(&self.atype.to_u16().to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&self.aclass.to_u16().to_be_bytes());
-        w.inc(2);
-        w[..4].copy_from_slice(&self.ttl.to_be_bytes());
-        w.inc(4);
+        w.write(&self.atype.to_u16().to_be_bytes());
+        w.write(&self.aclass.to_u16().to_be_bytes());
+        w.write(&self.ttl.to_be_bytes());
         self.record.serialize(w);
     }
 }

@@ -38,17 +38,12 @@ impl<'a, const QLEN: usize, const LLEN: usize> Request<'a, QLEN, LLEN> {
     }
 
     pub fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
-        w[..2].copy_from_slice(&self.id.to_be_bytes());
-        w.inc(2);
+        w.write(&self.id.to_be_bytes());
         self.flags.serialize(w);
-        w[..2].copy_from_slice(&(self.queries.len() as u16).to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&ZERO_U16); // ANCOUNT
-        w.inc(2);
-        w[..2].copy_from_slice(&ZERO_U16); // NSCOUNT
-        w.inc(2);
-        w[..2].copy_from_slice(&ZERO_U16); // ARCOUNT
-        w.inc(2);
+        w.write(&(self.queries.len() as u16).to_be_bytes());
+        w.write(&ZERO_U16); // ANCOUNT
+        w.write(&ZERO_U16); // NSCOUNT
+        w.write(&ZERO_U16); // ARCOUNT
         for query in self.queries.iter() {
             query.serialize(w);
         }
@@ -106,17 +101,12 @@ impl<'a, const QLEN: usize, const ALEN: usize, const LLEN: usize> Response<'a, Q
     }
 
     pub fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
-        w[..2].copy_from_slice(&self.id.to_be_bytes());
-        w.inc(2);
+        w.write(&self.id.to_be_bytes());
         self.flags.serialize(w);
-        w[..2].copy_from_slice(&(self.queries.len() as u16).to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&(self.answers.len() as u16).to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&ZERO_U16); // NSCOUNT
-        w.inc(2);
-        w[..2].copy_from_slice(&ZERO_U16); // ARCOUNT
-        w.inc(2);
+        w.write(&(self.queries.len() as u16).to_be_bytes());
+        w.write(&(self.answers.len() as u16).to_be_bytes());
+        w.write(&ZERO_U16); // NSCOUNT
+        w.write(&ZERO_U16); // ARCOUNT
         for query in self.queries.iter() {
             query.serialize(w);
         }

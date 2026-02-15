@@ -157,8 +157,7 @@ impl Flags {
     }
 
     pub fn serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
-        w[..2].copy_from_slice(&self.0.to_be_bytes());
-        w.inc(2);
+        w.write(&self.0.to_be_bytes());
     }
 }
 

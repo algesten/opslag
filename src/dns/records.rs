@@ -89,11 +89,8 @@ impl A {
     }
 
     pub(crate) fn serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
-        let len = 4u16.to_be_bytes();
-        w[..2].copy_from_slice(&len);
-        w.inc(2);
-        w[..4].copy_from_slice(&self.address.octets());
-        w.inc(4);
+        w.write(&4u16.to_be_bytes());
+        w.write(&self.address.octets());
     }
 }
 
@@ -115,11 +112,8 @@ impl AAAA {
     }
 
     pub(crate) fn serialize<const LK: usize>(&self, w: &mut Writer<'_, '_, LK>) {
-        let len = 16u16.to_be_bytes();
-        w[..2].copy_from_slice(&len);
-        w.inc(2);
-        w[..16].copy_from_slice(&self.address.octets());
-        w.inc(16);
+        w.write(&16u16.to_be_bytes());
+        w.write(&self.address.octets());
     }
 }
 
@@ -163,11 +157,8 @@ impl<'a> TXT<'a> {
     }
 
     pub(crate) fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
-        let text_len = self.text.len() as u16;
-        w[..2].copy_from_slice(&text_len.to_be_bytes());
-        w.inc(2);
-        w[..text_len as usize].copy_from_slice(self.text.as_bytes());
-        w.inc(text_len as usize);
+        w.write(&(self.text.len() as u16).to_be_bytes());
+        w.write(self.text.as_bytes());
     }
 }
 
@@ -203,12 +194,9 @@ impl<'a, const LLEN: usize> SRV<'a, LLEN> {
     pub(crate) fn serialize<'b, const LK: usize>(&self, w: &mut Writer<'a, 'b, LK>) {
         let r = w.reserve(2);
 
-        w[..2].copy_from_slice(&self.priority.to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&self.weight.to_be_bytes());
-        w.inc(2);
-        w[..2].copy_from_slice(&self.port.to_be_bytes());
-        w.inc(2);
+        w.write(&self.priority.to_be_bytes());
+        w.write(&self.weight.to_be_bytes());
+        w.write(&self.port.to_be_bytes());
 
         self.target.serialize(w);
 

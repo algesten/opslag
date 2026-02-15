@@ -200,10 +200,17 @@ impl<
             mask: netmask.into(),
         };
 
-        let _ = self.query_targets.push(QueryTarget {
-            service_type: Label::new(service_type),
-            local_ip,
-        });
+        let already_exists = self
+            .query_targets
+            .iter()
+            .any(|qt| qt.local_ip == local_ip && qt.service_type == service_type);
+
+        if !already_exists {
+            let _ = self.query_targets.push(QueryTarget {
+                service_type: Label::new(service_type),
+                local_ip,
+            });
+        }
 
         if !self.local_ips.contains(&local_ip) {
             let _ = self.local_ips.push(local_ip);
@@ -383,7 +390,11 @@ impl<
                     && &query.name == service.service_type()
                     && is_same_network(service.ip_address(), service.netmask(), from.ip())
                 {
-                    answers.extend(service.as_answers(qclass));
+                    for answer in service.as_answers(qclass) {
+                        if !answers.contains(&answer) {
+                            let _ = answers.push(answer);
+                        }
+                    }
                 }
             }
         }
